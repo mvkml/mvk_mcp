@@ -1,5 +1,5 @@
 ﻿# Define paths
-[int]$myNumber = 1
+[int]$myNumber = 4
 $myNumber = $myNumber + 1
 $index_value = "{0:D3}" -f $myNumber
 

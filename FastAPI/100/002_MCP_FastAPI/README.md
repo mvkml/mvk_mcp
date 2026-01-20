@@ -1,512 +1,402 @@
-# VishAgent - Map Utility and Mapping Objects
+# MCP Application - Core Modules Documentation
 
-## What is the Map Utility?
+This document provides detailed information about the core Python modules used in this application.
 
-The **Map Utility** is a programming pattern that transforms data from one structure to another. In Python, the `map()` function is a built-in utility that applies a function to every item of an iterable (list, tuple, etc.) and returns an iterator with the results.
+## Core Dependencies
 
-### Basic Map Function
+### 1. FastAPI (`from fastapi import FastAPI`)
+
+**Package:** `fastapi`
+
+**Purpose:** Modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints.
+
+#### Key Features:
+- **Fast**: Very high performance, on par with NodeJS and Go
+- **Fast to code**: Increase development speed by 200-300%
+- **Type Safety**: Based on standard Python type hints with automatic validation
+- **Automatic API Documentation**: Interactive API docs (Swagger UI) at `/docs` and ReDoc at `/redoc`
+- **Dependency Injection**: Built-in dependency injection system
+- **Async Support**: Full support for async/await patterns
+
+#### FastAPI Class Details:
 
 ```python
-# Syntax
-map(function, iterable)
+from fastapi import FastAPI
 
-# Example
-numbers = [1, 2, 3, 4, 5]
-squared = map(lambda x: x ** 2, numbers)
-result = list(squared)  # [1, 4, 9, 16, 25]
+app = FastAPI(
+    title="MARVISH Industrial AI Assistant",
+    version="1.0.0",
+    description="API documentation",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 ```
+
+**Common Methods:**
+- `@app.get()` - Define GET endpoint
+- `@app.post()` - Define POST endpoint
+- `@app.put()` - Define PUT endpoint
+- `@app.delete()` - Define DELETE endpoint
+- `@app.include_router()` - Include sub-routers
+- `@app.middleware()` - Add middleware
+- `@app.on_event("startup")` - Startup event handler
+- `@app.on_event("shutdown")` - Shutdown event handler
+
+**Installation:**
+```bash
+pip install fastapi==0.111.0
+pip install uvicorn[standard]==0.30.1  # ASGI server
+```
+
+**Current Version in Project:** `0.111.0`
 
 ---
 
-## What is the Use of Mapping Objects?
+### 2. MCP Server - FastMCP (`from mcp.server.fastmcp import FastMCP`)
 
-**Mapping objects** are used to transform data between different representations or structures. They serve several key purposes:
+**Package:** `mcp` (Model Context Protocol)
 
-### 1. **Data Transformation**
-Convert data from one format to another
+**Purpose:** FastMCP provides a high-level, FastAPI-style interface for building MCP (Model Context Protocol) servers quickly. It's designed to integrate AI agents with external tools and data sources.
 
-```python
-# Transform list of integers to strings
-numbers = [1, 2, 3]
-strings = list(map(str, numbers))  # ['1', '2', '3']
-```
+#### Key Features:
+- **Declarative API**: FastAPI-like decorator syntax
+- **Tool Registration**: Easy function-to-tool conversion
+- **Resource Management**: Built-in resource handling
+- **Prompt Templates**: Support for prompt management
+- **Type Safety**: Full Pydantic model support
 
-### 2. **Data Extraction**
-Extract specific fields from complex objects
-
-```python
-users = [
-    {"id": 1, "name": "John", "email": "john@example.com"},
-    {"id": 2, "name": "Jane", "email": "jane@example.com"}
-]
-
-# Extract only names
-names = list(map(lambda user: user['name'], users))
-# Result: ['John', 'Jane']
-```
-
-### 3. **Object Conversion**
-Convert between different object types
+#### FastMCP Class Details:
 
 ```python
-# Convert dictionaries to Pydantic models
-class UserModel(BaseModel):
-    id: int
-    name: str
+from mcp.server.fastmcp import FastMCP
 
-user_dicts = [{"id": 1, "name": "John"}]
-user_models = list(map(UserModel, user_dicts))
+mcp = FastMCP("MyServer")
+
+@mcp.tool()
+def my_tool(param: str) -> str:
+    """Tool description for LLM"""
+    return f"Result: {param}"
 ```
+
+**Common Decorators & Methods:**
+- `@mcp.tool()` - Register a function as an MCP tool
+- `@mcp.resource()` - Register a resource provider
+- `@mcp.prompt()` - Register a prompt template
+- `mcp.run()` - Start the MCP server
+- `mcp.add_tool()` - Programmatically add tools
+
+**Use Cases:**
+- Exposing Python functions as tools for LLM agents
+- Building AI agent backends
+- Creating custom MCP servers for LangGraph/LangChain
+- Integrating external APIs with AI systems
 
 ---
 
-## Mapping in VishAgent Architecture
+### 3. MCP Server Core (`from mcp.server import Server`)
 
-In VishAgent, mapping is crucial for converting data between layers:
+**Package:** `mcp.server`
 
-### API → Service → DAL Flow
+**Purpose:** Low-level MCP server implementation. Provides the core server infrastructure for the Model Context Protocol.
 
+#### Server Class Details:
+
+```python
+from mcp.server import Server
+
+server = Server("my-server")
+
+# Register handlers
+@server.list_tools()
+async def list_tools():
+    return [...]
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    return [...]
 ```
-HTTP Request (JSON)
-    ↓ [Pydantic Validation]
-UserRequest (Pydantic Model)
-    ↓ [Mapping/Transformation]
-User (Domain Model)
-    ↓ [Service Processing]
-User (with additional fields)
-    ↓ [DAL Mapping]
-Database Record
-```
+
+**Key Responsibilities:**
+- **Protocol Handling**: Manages MCP protocol communication
+- **Request/Response**: Handles incoming requests and outgoing responses
+- **Tool Management**: Maintains tool registry and execution
+- **Resource Management**: Manages available resources
+- **Session Management**: Handles client sessions
+
+**Differences from FastMCP:**
+- **Server**: Low-level, more control, manual handler registration
+- **FastMCP**: High-level, FastAPI-like, automatic handler generation
+
+**When to Use:**
+- Use `FastMCP` for rapid development and simple servers
+- Use `Server` for complex scenarios requiring fine-grained control
 
 ---
 
-## Practical Mapping Examples in VishAgent
+### 4. MCP Types (`from mcp.types import Tool, TextContent`)
 
-### 1. Request to Domain Model Mapping
+**Package:** `mcp.types`
 
-```python
-# api_user.py
-@user_router.post("/")
-async def create_user(request: UserRequest) -> UserResponse:
-    """
-    Request: UserRequest (from API)
-    Maps to: User (domain model)
-    """
-    dal = UserDAL()
-    service = UserService(dal)
-    
-    # Map UserRequest to domain model
-    user = await service.create_user(request)
-    
-    # Map User to UserResponse
-    response.Data = user
-    return response
-```
+**Purpose:** Type definitions and data models for the Model Context Protocol. Provides Pydantic models for structured communication.
 
-### 2. Database Record to Model Mapping
+#### Tool Class
 
 ```python
-# repositories/user_dal.py
-async def get_user_by_id(self, user_id: int) -> Optional[User]:
-    """Map database record to User model"""
-    query = "SELECT * FROM users WHERE id = %s"
-    result = await self.db.fetch_one(query, (user_id,))
-    
-    # Map database row to User model
-    return User(**result) if result else None
-```
+from mcp.types import Tool
 
-### 3. Multiple Records Mapping
-
-```python
-# Use map() to transform multiple objects
-async def get_all_users(self) -> List[User]:
-    """Map multiple database records to User models"""
-    query = "SELECT * FROM users"
-    results = await self.db.fetch(query)
-    
-    # Method 1: Using list comprehension (preferred)
-    return [User(**row) for row in results]
-    
-    # Method 2: Using map()
-    return list(map(User, results))
-```
-
----
-
-## Map vs List Comprehension
-
-### Using map()
-```python
-numbers = [1, 2, 3, 4, 5]
-
-# map() - returns iterator
-result_map = map(lambda x: x * 2, numbers)
-print(list(result_map))  # [2, 4, 6, 8, 10]
-```
-
-### Using List Comprehension (Preferred in Python)
-```python
-numbers = [1, 2, 3, 4, 5]
-
-# List comprehension - more Pythonic
-result_list = [x * 2 for x in numbers]
-print(result_list)  # [2, 4, 6, 8, 10]
-```
-
-### Comparison
-
-| Aspect | map() | List Comprehension |
-|--------|-------|-------------------|
-| **Readability** | Less Pythonic | More Pythonic |
-| **Performance** | Lazy evaluation | Eager evaluation |
-| **Memory** | Lower (iterator) | Higher (full list) |
-| **Flexibility** | Single function | Complex logic |
-| **Debugging** | Harder | Easier |
-
----
-
-## Mapping Objects in VishAgent: DTOs and Models
-
-### 1. Request Model Mapping
-
-```python
-# models/user_model.py
-class UserRequest(BaseModel):
-    """API Request DTO"""
-    name: str
-    email: str
-    phone: Optional[str] = None
-
-class UserModel(BaseModel):
-    """Domain Model"""
-    id: Optional[int] = None
-    name: str
-    email: str
-    phone: Optional[str] = None
-    created_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True  # Map from ORM objects
-
-# Mapping UserRequest to UserModel
-request = UserRequest(name="John", email="john@example.com")
-user_model = UserModel(**request.dict())
-```
-
-### 2. Database to Model Mapping
-
-```python
-# Pydantic from_attributes enables mapping from ORM/database objects
-class UserModel(BaseModel):
-    id: int
-    name: str
-    email: str
-    
-    class Config:
-        from_attributes = True  # Maps database row directly
-
-# When database returns a row as dict or object
-db_row = {"id": 1, "name": "John", "email": "john@example.com"}
-user = UserModel(**db_row)  # Automatic mapping
-```
-
-### 3. Model to Response Mapping
-
-```python
-# services/user_service.py
-async def get_user(self, user_id: int) -> UserModel:
-    """
-    Service returns domain model
-    API converts to response format
-    """
-    user = await self.dal.get_user_by_id(user_id)
-    return user  # UserModel
-
-# api_user.py - Convert to response
-response.Data = user  # UserModel → included in UserResponse
-return response  # Response is serialized to JSON
-```
-
----
-
-## Advanced Mapping Patterns
-
-### 1. Custom Mapping Functions
-
-```python
-# utils/mappers.py
-def map_user_to_response(user: UserModel) -> dict:
-    """Custom mapping function"""
-    return {
-        "id": user.id,
-        "name": user.name,
-        "email": user.email,
-        "profile": f"{user.name} ({user.email})"
+tool = Tool(
+    name="calculate_sum",
+    description="Adds two numbers together",
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "a": {"type": "number", "description": "First number"},
+            "b": {"type": "number", "description": "Second number"}
+        },
+        "required": ["a", "b"]
     }
-
-# Usage
-user = UserModel(id=1, name="John", email="john@example.com")
-response_data = map_user_to_response(user)
+)
 ```
 
-### 2. Mapper Class Pattern
+**Tool Attributes:**
+- `name` (str): Unique identifier for the tool
+- `description` (str): Human-readable description for LLM
+- `inputSchema` (dict): JSON Schema defining expected parameters
+
+**Purpose:** Defines a callable tool that LLMs can invoke through the MCP protocol. Used in function calling scenarios.
+
+#### TextContent Class
 
 ```python
-# utils/mappers.py
-class UserMapper:
-    """Centralized mapping logic"""
-    
-    @staticmethod
-    def to_model(user_request: UserRequest) -> UserModel:
-        """Map request to domain model"""
-        return UserModel(**user_request.dict())
-    
-    @staticmethod
-    def to_response(user: UserModel) -> dict:
-        """Map domain model to response"""
-        return user.dict(exclude={"created_at"})
-    
-    @staticmethod
-    def to_db(user: UserModel) -> dict:
-        """Map domain model to database format"""
-        return user.dict(exclude={"id"})
+from mcp.types import TextContent
 
-# Usage
-request = UserRequest(name="John", email="john@example.com")
-user = UserMapper.to_model(request)
-response = UserMapper.to_response(user)
+content = TextContent(
+    type="text",
+    text="This is the response text"
+)
 ```
 
-### 3. Batch Mapping with map()
+**TextContent Attributes:**
+- `type` (str): Content type identifier (usually "text")
+- `text` (str): The actual text content
+
+**Purpose:** Represents textual content in MCP responses. Used when returning text results from tool calls or resources.
+
+#### Other Common Types in mcp.types:
+
+**ImageContent:**
+```python
+from mcp.types import ImageContent
+
+image = ImageContent(
+    type="image",
+    data="base64_encoded_data",
+    mimeType="image/png"
+)
+```
+
+**CallToolResult:**
+```python
+from mcp.types import CallToolResult
+
+result = CallToolResult(
+    content=[TextContent(type="text", text="Result")],
+    isError=False
+)
+```
+
+**Resource:**
+```python
+from mcp.types import Resource
+
+resource = Resource(
+    uri="file:///path/to/resource",
+    name="MyResource",
+    description="Resource description",
+    mimeType="text/plain"
+)
+```
+
+---
+
+## Architecture Integration
+
+### How These Modules Work Together
 
 ```python
-# Apply transformation to collection
-users_data = [
-    {"id": 1, "name": "John", "email": "john@example.com"},
-    {"id": 2, "name": "Jane", "email": "jane@example.com"}
+# 1. FastAPI handles HTTP endpoints
+from fastapi import FastAPI
+app = FastAPI(title="MARVISH Industrial AI Assistant")
+
+# 2. MCP Server/FastMCP provides AI agent tool interface
+from mcp.server.fastmcp import FastMCP
+mcp_server = FastMCP("ClaimPolicyAgent")
+
+# 3. Define tools using MCP types
+from mcp.types import Tool, TextContent
+
+@mcp_server.tool()
+def validate_claim(claim_id: str) -> str:
+    """Validates insurance claim"""
+    result = perform_validation(claim_id)
+    return result
+
+# 4. FastAPI endpoint that uses MCP tool
+@app.post("/api/validate")
+async def validate_endpoint(claim_id: str):
+    # Can invoke MCP tools or integrate with LangGraph
+    result = await process_with_agent(claim_id)
+    return {"result": result}
+```
+
+### Flow Diagram
+
+```
+Client Request
+    ↓
+FastAPI Endpoint (HTTP)
+    ↓
+Business Logic / Service Layer
+    ↓
+MCP Server/FastMCP (Tool Execution)
+    ↓
+Tool Implementation (using mcp.types)
+    ↓
+Return TextContent/Results
+    ↓
+FastAPI Response (HTTP)
+```
+
+---
+
+## Installation
+
+```bash
+# Install FastAPI
+pip install fastapi==0.111.0
+pip install uvicorn[standard]==0.30.1
+
+# Install MCP
+pip install mcp
+
+# Or install all project dependencies
+pip install -r requirements.txt
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: FastAPI + FastMCP Integration
+
+```python
+from fastapi import FastAPI
+from mcp.server.fastmcp import FastMCP
+from mcp.types import Tool, TextContent
+
+app = FastAPI()
+mcp = FastMCP("MyAgent")
+
+@mcp.tool()
+def my_tool(query: str) -> str:
+    """Process query"""
+    return f"Processed: {query}"
+
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+
+# Run both servers
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+### Pattern 2: LangGraph + MCP Tools
+
+```python
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
+from mcp.types import Tool
+
+# Define MCP tools
+tools = [
+    Tool(
+        name="search",
+        description="Search for information",
+        inputSchema={...}
+    )
 ]
 
-# Option 1: Using map()
-users = list(map(lambda d: UserModel(**d), users_data))
-
-# Option 2: Using list comprehension (preferred)
-users = [UserModel(**d) for d in users_data]
+# Create agent with tools
+llm = ChatOpenAI(model="gpt-4")
+agent = create_react_agent(llm, tools)
 ```
 
----
-
-## Mapping Use Cases in VishAgent
-
-### Use Case 1: API Request Processing
-
-```
-1. HTTP Request (JSON string)
-   ↓
-2. FastAPI deserialization (UserRequest Pydantic model)
-   ↓
-3. Service layer (map to domain model)
-   ↓
-4. Business logic processing
-   ↓
-5. Response mapping (UserModel to UserResponse)
-   ↓
-6. HTTP Response (JSON string)
-```
-
-### Use Case 2: Data Retrieval
-
-```
-1. Database query returns raw data
-   ↓
-2. DAL maps to domain model (UserModel)
-   ↓
-3. Service adds business context
-   ↓
-4. API maps to response format
-   ↓
-5. Returns serialized JSON
-```
-
-### Use Case 3: Multi-Record Processing
+### Pattern 3: Tool Result Formatting
 
 ```python
-# Get all users and map to response format
-async def get_all_users(self) -> UserResponse:
-    dal = UserDAL()
-    service = UserService(dal)
-    
-    # Get list of UserModel objects
-    users = await service.get_all_users()
-    
-    # Map to response format (implicit - Pydantic handles it)
-    response.Data = users
-    return response
-```
+from mcp.types import TextContent, CallToolResult
 
----
-
-## Best Practices for Mapping in VishAgent
-
-### 1. **Use Pydantic for Automatic Mapping**
-```python
-# ✅ Preferred - Pydantic handles validation and mapping
-class UserModel(BaseModel):
-    id: int
-    name: str
-    email: str
-
-user = UserModel(**database_row)  # Automatic mapping
-```
-
-### 2. **Prefer List Comprehension over map()**
-```python
-# ❌ Avoid
-users = list(map(UserModel, db_rows))
-
-# ✅ Preferred
-users = [UserModel(**row) for row in db_rows]
-```
-
-### 3. **Centralize Mapping Logic**
-```python
-# ✅ Good - Mapping logic in one place
-class UserMapper:
-    @staticmethod
-    def to_model(request: UserRequest) -> UserModel:
-        return UserModel(**request.dict())
-
-# Use in multiple places
-user = UserMapper.to_model(request)
-```
-
-### 4. **Type Hints for Clarity**
-```python
-# ✅ Good - Clear input/output types
-def map_to_response(user: UserModel) -> dict:
-    """Maps UserModel to response dictionary"""
-    return user.dict()
-
-# ❌ Avoid - Ambiguous
-def map_data(data):
-    return data
-```
-
-### 5. **Separate Concerns**
-```python
-# ✅ Good - Each layer handles its own mapping
-# API layer: Request → Domain Model
-# Service layer: Domain Model → Enriched Model
-# DAL layer: Enriched Model → Database format
-```
-
----
-
-## Performance Considerations
-
-### Memory Usage
-
-```python
-# map() - Lazy evaluation (lower memory for large datasets)
-large_list = range(1000000)
-result = map(lambda x: x * 2, large_list)  # Not evaluated yet
-first_item = next(result)  # Only one item evaluated
-
-# List comprehension - Eager evaluation (full list in memory)
-result = [x * 2 for x in large_list]  # All evaluated immediately
-```
-
-### When to Use map()
-- Processing large datasets
-- Need lazy evaluation
-- Single simple transformation
-
-### When to Use List Comprehension
-- Small to medium datasets
-- Complex transformations
-- Need full list in memory anyway
-- Code readability is priority
-
----
-
-## Mapping Objects in VishAgent DTOs
-
-### Complete Example
-
-```python
-# models/user_model.py
-class UserRequest(BaseModel):
-    """Request DTO - from API client"""
-    name: str
-    email: str
-    phone: Optional[str] = None
-
-class UserModel(BaseModel):
-    """Domain Model - internal representation"""
-    id: Optional[int] = None
-    name: str
-    email: str
-    phone: Optional[str] = None
-    created_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
-
-class UserResponse(BaseModel):
-    """Response DTO - to API client"""
-    IsInvalid: bool = False
-    Message: Optional[str | dict] = None
-    Data: Optional[UserModel] = None
-
-# services/user_service.py
-class UserService:
-    async def create_user(self, request: UserRequest) -> UserModel:
-        # Map request to model
-        user_data = request.dict()
-        user = UserModel(**user_data)
-        
-        # Process via DAL
-        created = await self.dal.create_user(user)
-        return created
-
-# api_user.py
-@user_router.post("/", response_model=UserResponse)
-async def create_user(request: UserRequest) -> UserResponse:
-    response = UserResponse()
+def execute_tool(name: str, args: dict) -> CallToolResult:
     try:
-        dal = UserDAL()
-        service = UserService(dal)
-        
-        # Service returns UserModel
-        user = await service.create_user(request)
-        
-        # Map to response
-        response.Data = user  # UserModel
-        response.Message = "User created"
-        return response  # Pydantic serializes to JSON
-    except Exception as ex:
-        response.IsInvalid = True
-        response.Message = {"error": str(ex)}
-        return response
+        result = perform_operation(name, args)
+        return CallToolResult(
+            content=[TextContent(type="text", text=str(result))],
+            isError=False
+        )
+    except Exception as e:
+        return CallToolResult(
+            content=[TextContent(type="text", text=str(e))],
+            isError=True
+        )
 ```
 
 ---
 
-## Summary
+## Best Practices
 
-| Concept | Purpose | Use in VishAgent |
-|---------|---------|------------------|
-| **Map Utility** | Transform each item in a collection | Process collections efficiently |
-| **Mapping Objects** | Convert between different data structures | Transform data between API/Service/DAL layers |
-| **Pydantic Models** | Automatic validation and mapping | Request/response DTOs |
-| **List Comprehension** | Readable transformation syntax | Preferred over map() |
-| **Custom Mappers** | Centralized mapping logic | Reusable mapping functions |
+1. **Type Hints**: Always use type hints for FastAPI and MCP tool parameters
+2. **Tool Descriptions**: Provide clear, detailed descriptions for LLM understanding
+3. **Error Handling**: Wrap tool executions in try-except blocks
+4. **Schema Validation**: Use Pydantic models with MCP inputSchema
+5. **Async/Await**: Use async functions for I/O operations in FastAPI
+6. **Documentation**: Leverage FastAPI's automatic docs generation
 
 ---
 
-## Related Files
+## Troubleshooting
 
-- [api/api_mange_user/api_user.py](api/api_mange_user/api_user.py) - Mapping in API layer
-- [models/user_model.py](models/user_model.py) - Data models for mapping
-- [services/user_service.py](services/user_service.py) - Mapping in service layer
-- [repositories/user_dal.py](repositories/user_dal.py) - Mapping in DAL layer
+### Issue: MCP Tools Not Recognized by LLM
+
+**Solution:** Ensure tool descriptions are clear and inputSchema is properly formatted with JSON Schema.
+
+### Issue: FastAPI and MCP Port Conflicts
+
+**Solution:** Run them on different ports or integrate MCP as a service within FastAPI.
+
+### Issue: Type Validation Errors
+
+**Solution:** Ensure all parameters have proper type hints and match the inputSchema.
+
+---
+
+## References
+
+- **FastAPI Documentation**: https://fastapi.tiangolo.com/
+- **MCP Specification**: https://modelcontextprotocol.io/
+- **Pydantic Documentation**: https://docs.pydantic.dev/
+- **LangGraph Documentation**: https://langchain-ai.github.io/langgraph/
+
+---
+
+## Current Project Usage
+
+This project uses these modules for:
+- **FastAPI**: Main API server (port 825) serving HTTP endpoints
+- **MCP Server**: Tool interface for LLM agents
+- **Claim Policy Analysis**: Validating insurance claims using AI agents
+- **LangGraph Integration**: Agent workflows with tool calling capabilities
+
+See [READMEProjectStructure.md](READMEProjectStructure.md) for full project architecture.
